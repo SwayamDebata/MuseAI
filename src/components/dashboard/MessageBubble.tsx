@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { Copy, Check, User, Bot } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Message } from 'postcss'
+import { type Message } from '@/stores/chatStore'
 import { copyToClipboard, formatTime } from '../../lib/utils'
 
 interface MessageBubbleProps {
