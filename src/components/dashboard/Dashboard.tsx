@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useChatStore } from '../../stores/chatStore'
 import ChatInterface from './ChatInterface'
 import Header from './Header'
@@ -9,7 +9,23 @@ import Sidebar from './Sidebar'
 
 export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const { currentChatroom } = useChatStore()
+  const { currentChatroom, checkCometChatAuth, initializeCometChat, isCometChatInitialized } = useChatStore()
+
+  useEffect(() => {
+    const initializeAndCheckAuth = async () => {
+      console.log('Dashboard initialization starting...');
+      
+      if (!isCometChatInitialized) {
+        console.log('Initializing CometChat from Dashboard...');
+        await initializeCometChat();
+      }
+      
+      console.log('Checking CometChat authentication...');
+      await checkCometChatAuth();
+    }
+    
+    initializeAndCheckAuth();
+  }, [checkCometChatAuth, initializeCometChat, isCometChatInitialized])
 
   return (
     <div className="h-screen flex bg-gray-50 dark:bg-gray-900">

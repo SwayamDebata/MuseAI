@@ -1,97 +1,101 @@
 'use client'
 
-import { useState } from 'react'
-
-import { Copy, Check, User, Bot } from 'lucide-react'
-import toast from 'react-hot-toast'
-import { type Message } from '@/stores/chatStore'
-import { copyToClipboard, formatTime } from '../../lib/utils'
+import { Message } from '../../stores/chatStore'
+import { formatTime } from '../../lib/utils'
+import { useChatStore } from '../../stores/chatStore'
 
 interface MessageBubbleProps {
   message: Message
-  showAvatar: boolean
-  showTimestamp: boolean
 }
 
-export default function MessageBubble({ message, showAvatar, showTimestamp }: MessageBubbleProps) {
-  const [copied, setCopied] = useState(false)
-  const [imageError, setImageError] = useState(false)
-
-  const isUser = message.sender === 'user'
-
-  const handleCopy = async () => {
-    const success = await copyToClipboard(message.content)
-    if (success) {
-      setCopied(true)
-      toast.success('Message copied to clipboard')
-      setTimeout(() => setCopied(false), 2000)
-    } else {
-      toast.error('Failed to copy message')
-    }
-  }
+export default function MessageBubble({ message }: MessageBubbleProps) {
+  const { currentUser } = useChatStore()
+  
+  const isCurrentUser = message.isAI ? false : (message.senderId === currentUser?.uid)
+  const isAI = message.isAI || message.sender === 'ai'
+  const isAICommand = message.isAICommand || (message.content && (message.content.startsWith('/askAI') || message.content.startsWith('\\askAI')))
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group`}>
-      <div className={`flex max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
-        {/* Avatar */}
-        {showAvatar && (
-          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser 
-              ? 'bg-blue-600 text-white' 
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+    <div
+      className={`flex mb-4 ${
+        isCurrentUser ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      <div
+        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+          isAI
+            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-100 border border-purple-200 dark:border-purple-800'
+            : isAICommand
+            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-800'
+            : isCurrentUser
+            ? 'bg-blue-600 text-white rounded-br-sm'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm'
+        }`}
+      >
+        {/* Sender Name - show for others' messages, AI commands, and AI responses */}
+        {!isCurrentUser && message.senderName && (
+          <div className={`text-xs font-semibold mb-1 ${
+            isAI 
+              ? 'text-purple-600 dark:text-purple-400'
+              : isAICommand
+              ? 'text-indigo-600 dark:text-indigo-400'
+              : 'text-blue-600 dark:text-blue-400'
           }`}>
-            {isUser ? (
-              <User className="w-4 h-4" />
-            ) : (
-              <Bot className="w-4 h-4" />
-            )}
+            {message.senderName}
           </div>
         )}
 
-        <div className={`relative ${!showAvatar ? (isUser ? 'mr-10' : 'ml-10') : ''}`}>
-          <div
-            className={`relative px-4 py-2 rounded-2xl max-w-full break-words ${
-              isUser
-                ? 'bg-blue-600 text-white rounded-br-md'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-md'
-            }`}
-          >
-            {message.image && !imageError && (
-              <div className="mb-2">
-                <img
-                  src={message.image}
-                  alt="Shared image"
-                  className="max-w-full h-auto rounded-lg"
-                  onError={() => setImageError(true)}
-                  loading="lazy"
-                />
-              </div>
-            )}
-
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-
-            <button
-              onClick={handleCopy}
-              className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${
-                isUser 
-                  ? 'right-2 text-blue-100 hover:text-white hover:bg-blue-700' 
-                  : 'right-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-              title="Copy message"
-            >
-              {copied ? (
-                <Check className="w-3 h-3" />
-              ) : (
-                <Copy className="w-3 h-3" />
-              )}
-            </button>
+        {/* AI Indicator */}
+        {isAI && (
+          <div className="flex items-center gap-1 mb-1">
+            <span className="text-xs font-semibold">🤖 AI Assistant</span>
           </div>
+        )}
 
-          {showTimestamp && (
-            <div className={`mt-1 text-xs text-gray-500 dark:text-gray-400 ${
-              isUser ? 'text-right' : 'text-left'
-            }`}>
-              {formatTime(new Date(message.timestamp))}
+        {/* AI Command Indicator */}
+        {isAICommand && !isAI && (
+          <div className="flex items-center gap-1 mb-1">
+            <span className="text-xs font-semibold">💬 AI Command</span>
+          </div>
+        )}
+
+        {/* Message Content */}
+        <div className="whitespace-pre-wrap break-words">
+          {message.content}
+        </div>
+
+        {message.image && (
+          <div className="mt-2">
+            <img
+              src={message.image}
+              alt="Shared image"
+              className="max-w-full h-auto rounded-lg"
+            />
+          </div>
+        )}
+
+        {/* Timestamp and Status */}
+        <div
+          className={`text-xs mt-1 flex items-center justify-end gap-1 ${
+            isAI
+              ? 'text-purple-600 dark:text-purple-400'
+              : isAICommand
+              ? 'text-indigo-600 dark:text-indigo-400'
+              : isCurrentUser
+              ? 'text-blue-100'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          <span>{formatTime(message.timestamp)}</span>
+          
+          {/* Message status for current user */}
+          {isCurrentUser && !isAI && (
+            <div className="flex">
+              {/* Double checkmark for delivered/read */}
+              <svg className="w-3 h-3 fill-current" viewBox="0 0 16 16">
+                <path d="M2.5 8.5L6 12l7.5-7.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                <path d="M5 11L8.5 7.5L13 12" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+              </svg>
             </div>
           )}
         </div>
