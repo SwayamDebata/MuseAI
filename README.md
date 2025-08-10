@@ -33,7 +33,17 @@ A fully functional, responsive, and visually appealing frontend for a Gemini-sty
 - **Keyboard Accessibility** for all interactions
 - **LocalStorage Persistence** for auth and chat data
 
-## 🛠️ Tech Stack
+## � Security
+
+This project follows security best practices:
+
+- **No environment files in version control**: All `.env*` files are excluded from git
+- **API key protection**: Sensitive credentials are only stored locally
+- **Documentation over examples**: Setup instructions provided without exposing actual keys
+
+**Important**: Never commit your `.env.local` file or any files containing API keys to version control.
+
+## �🛠️ Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
@@ -48,7 +58,7 @@ A fully functional, responsive, and visually appealing frontend for a Gemini-sty
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd gemini-chat
+   cd MuseAI
    ```
 
 2. Install dependencies:
@@ -56,12 +66,31 @@ A fully functional, responsive, and visually appealing frontend for a Gemini-sty
    npm install
    ```
 
-3. Start the development server:
+3. Set up environment variables:
+   Create a `.env.local` file in the root directory and add the following variables:
+   ```bash
+   # Gemini AI Configuration
+   NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   
+   # CometChat Configuration
+   NEXT_PUBLIC_COMETCHAT_APP_ID=your_cometchat_app_id
+   NEXT_PUBLIC_COMETCHAT_REGION=your_cometchat_region
+   NEXT_PUBLIC_COMETCHAT_AUTH_KEY=your_cometchat_auth_key
+   ```
+
+   **⚠️ Security Note**: Never commit environment files to version control. See `ENVIRONMENT.md` for detailed setup instructions.
+
+   **Getting API Keys:**
+   - **Gemini API**: Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - **CometChat**: Sign up at [CometChat](https://www.cometchat.com/) and create an app to get your credentials
+
+4. Start the development server:
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🏗️ Project Structure
 
@@ -134,7 +163,7 @@ The application now features real AI integration with Google's Gemini AI API for
 2. **Configure the API Key**:
    ```bash
    # Create a .env.local file in the root directory
-   cp .env.example .env.local
+   # See ENVIRONMENT.md for detailed setup instructions
    
    # Add your API key to .env.local
    GEMINI_API_KEY=your_actual_api_key_here

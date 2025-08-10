@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { OTPFormData, otpSchema } from '../../lib/validations'
 import { useAuthStore } from '../../stores/authStore'
+import { useChatStore } from '../../stores/chatStore'
 
 interface OTPFormProps {
   authData: {
@@ -23,6 +24,7 @@ export default function OTPForm({ authData, onBack }: OTPFormProps) {
   const [loading, setLoading] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const { login } = useAuthStore()
+  const { loginToCometChat } = useChatStore()
 
   const {
     handleSubmit,
@@ -100,7 +102,28 @@ export default function OTPForm({ authData, onBack }: OTPFormProps) {
       }
 
       login(user)
-      toast.success('Successfully logged in!')
+      
+      try {
+        console.log('OTP form CometChat login starting...');
+        const fullPhoneNumber = `${authData.countryCode}${authData.phoneNumber}`;
+        console.log('Full phone number for CometChat:', fullPhoneNumber);
+        
+        const { initializeCometChat } = useChatStore.getState();
+        await initializeCometChat();
+        
+        const cometChatSuccess = await loginToCometChat(fullPhoneNumber, `User ${authData.phoneNumber}`);
+        
+        if (cometChatSuccess) {
+          console.log('✅ CometChat login successful');
+          toast.success('Successfully logged in!');
+        } else {
+          console.log('❌ CometChat login failed');
+          toast.success('Logged in, but some features may be limited');
+        }
+      } catch (error) {
+        console.error('❌ CometChat login error:', error);
+        toast.success('Logged in, but some features may be limited');
+      }
     } else {
       setError('otp', { message: 'Invalid OTP. Please try again.' })
       toast.error('Invalid OTP')

@@ -1,153 +1,172 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-
-import { Search, Plus, Trash2, MessageCircle, X } from 'lucide-react'
+import { Search, Plus, Trash2, MessageCircle, X, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { debounce, formatDate, formatTime } from '../../lib/utils'
 import { ChatroomFormData, chatroomSchema } from '../../lib/validations'
 import { useChatStore } from '../../stores/chatStore'
+import GroupDiscovery from './GroupDiscovery'
 
 interface SidebarProps {
   onClose: () => void
 }
 
 export default function Sidebar({ onClose }: SidebarProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [showDiscovery, setShowDiscovery] = useState(false)
+
   const {
     chatrooms,
     currentChatroom,
-    searchQuery,
     createChatroom,
-    deleteChatroom,
     selectChatroom,
-    setSearchQuery,
-    filteredChatrooms,
+    deleteChatroom,
+    isCometChatInitialized
   } = useChatStore()
-
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [chatroomToDelete, setChatroomToDelete] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
     reset,
+    formState: { errors, isSubmitting }
   } = useForm<ChatroomFormData>({
-    resolver: zodResolver(chatroomSchema),
+    resolver: zodResolver(chatroomSchema)
   })
 
-  const debouncedSetSearchQuery = useMemo(
-    () => debounce((query: string) => setSearchQuery(query), 300),
-    [setSearchQuery]
+  const debouncedSearch = useMemo(
+    () => debounce((term: string) => setSearchTerm(term), 300),
+    []
   )
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    debouncedSetSearchQuery(e.target.value)
+  const filteredChatrooms = useMemo(() => {
+    if (!searchTerm) return chatrooms
+    return chatrooms.filter(room =>
+      room.title.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [chatrooms, searchTerm])
+
+  const handleCreateChatroom = async (data: ChatroomFormData) => {
+    try {
+      console.log('Creating chatroom:', data.title)
+      await createChatroom(data.title, true) 
+      reset()
+      setIsCreating(false)
+      toast.success('Chatroom created successfully!')
+    } catch (error) {
+      console.error('Error creating chatroom:', error)
+      toast.error('Failed to create chatroom')
+    }
   }
 
-  const handleCreateChatroom = (data: ChatroomFormData) => {
-    const newChatroom = createChatroom(data.title)
-    setShowCreateForm(false)
-    reset()
-    toast.success(`Chatroom "${data.title}" created`)
+  const handleDeleteChatroom = async (id: string, title: string) => {
+    if (confirm(`Are you sure you want to delete "${title}"?`)) {
+      try {
+        await deleteChatroom(id)
+        toast.success('Chatroom deleted')
+      } catch (error) {
+        console.error('Error deleting chatroom:', error)
+        toast.error('Failed to delete chatroom')
+      }
+    }
+  }
+
+  const formatLastMessage = (room: any) => {
+    if (!room.lastMessage) return 'No messages yet'
     
-    if (window.innerWidth < 1024) {
-      onClose()
-    }
-  }
-
-  const handleDeleteChatroom = (id: string) => {
-    const chatroom = chatrooms.find(c => c.id === id)
-    if (chatroom) {
-      deleteChatroom(id)
-      setChatroomToDelete(null)
-      toast.success(`Chatroom "${chatroom.title}" deleted`)
-    }
-  }
-
-  const handleSelectChatroom = (id: string) => {
-    selectChatroom(id)
+    const time = formatTime(room.lastMessage.timestamp)
+    const isAI = room.lastMessage.sender === 'AI'
+    const prefix = isAI ? '🤖 ' : ''
+    const messageText = room.lastMessage.text || room.lastMessage.content || 'No message content'
     
-    if (window.innerWidth < 1024) {
-      onClose()
-    }
+    return `${prefix}${messageText.substring(0, 30)}${
+      messageText.length > 30 ? '...' : ''
+    } • ${time}`
   }
-
-  const filtered = filteredChatrooms()
 
   return (
-    <div className="h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+      {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Chatrooms
           </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-              title="Create new chatroom"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onClose}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="relative">
+        {/* Search */}
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
             placeholder="Search chatrooms..."
-            defaultValue={searchQuery}
-            onChange={handleSearchChange}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => debouncedSearch(e.target.value)}
           />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsCreating(true)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Group
+          </button>
+          
+          {isCometChatInitialized && (
+            <button
+              onClick={() => setShowDiscovery(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              Join Group
+            </button>
+          )}
         </div>
       </div>
 
-      {showCreateForm && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      {/* Create Form */}
+      {isCreating && (
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <form onSubmit={handleSubmit(handleCreateChatroom)} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Chatroom Title
-              </label>
               <input
-                type="text"
-                placeholder="Enter chatroom title..."
                 {...register('title')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                autoFocus
+                type="text"
+                placeholder="Enter chatroom name..."
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {errors.title && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                  {errors.title.message}
-                </p>
+                <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
               )}
             </div>
+            
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                disabled={isSubmitting}
+                className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
               >
-                Create
+                {isSubmitting ? 'Creating...' : 'Create'}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setShowCreateForm(false)
+                  setIsCreating(false)
                   reset()
                 }}
-                className="flex-1 py-2 px-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="px-3 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -156,72 +175,73 @@ export default function Sidebar({ onClose }: SidebarProps) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {filtered.length === 0 ? (
-          <div className="p-4 text-center">
-            <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {searchQuery ? 'No chatrooms found' : 'No chatrooms yet'}
-            </p>
-            {!searchQuery && (
+      {/* Group Discovery Modal */}
+      {showDiscovery && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-96 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Discover Groups
+              </h3>
               <button
-                onClick={() => setShowCreateForm(true)}
-                className="mt-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+                onClick={() => setShowDiscovery(false)}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                Create your first chatroom
+                <X className="w-5 h-5" />
               </button>
-            )}
+            </div>
+            <div className="p-4">
+              <GroupDiscovery onClose={() => setShowDiscovery(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chatrooms List */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredChatrooms.length === 0 ? (
+          <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+            {searchTerm ? 'No chatrooms found' : 'No chatrooms yet. Create your first one!'}
           </div>
         ) : (
           <div className="p-2">
-            {filtered.map((chatroom) => (
+            {filteredChatrooms.map((room) => (
               <div
-                key={chatroom.id}
-                className={`
-                  group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
-                  ${currentChatroom?.id === chatroom.id
-                    ? 'bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-800'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }
-                `}
-                onClick={() => handleSelectChatroom(chatroom.id)}
+                key={room.id}
+                className={`group relative p-3 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                  currentChatroom?.id === room.id
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                    : ''
+                }`}
+                onClick={() => selectChatroom(room.id)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-900 dark:text-white truncate">
-                      {chatroom.title}
-                    </h3>
-                    {chatroom.lastMessage && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
-                        {chatroom.lastMessage.sender === 'ai' ? 'Gemini: ' : 'You: '}
-                        {chatroom.lastMessage.content}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-gray-400">
-                        {formatDate(chatroom.createdAt)}
-                      </span>
-                      {chatroom.lastMessage && (
-                        <>
-                          <span className="text-xs text-gray-400">•</span>
-                          <span className="text-xs text-gray-400">
-                            {formatTime(chatroom.lastMessage.timestamp)}
-                          </span>
-                        </>
+                    <div className="flex items-center gap-2 mb-1">
+                      <MessageCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                        {room.title}
+                      </h3>
+                      {room.isGroupChat && (
+                        <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
                       )}
-                      <span className="text-xs text-gray-400">
-                        • {chatroom.messages.length} messages
-                      </span>
                     </div>
+                    
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      {formatLastMessage(room)}
+                    </p>
+                    
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      Created {formatDate(room.createdAt)}
+                    </p>
                   </div>
-                  
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      setChatroomToDelete(chatroom.id)
+                      handleDeleteChatroom(room.id, room.title)
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition-all"
-                    title="Delete chatroom"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-opacity"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -231,33 +251,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
           </div>
         )}
       </div>
-
-      {chatroomToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Delete Chatroom
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
-              Are you sure you want to delete this chatroom? This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleDeleteChatroom(chatroomToDelete)}
-                className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Delete
-              </button>
-              <button
-                onClick={() => setChatroomToDelete(null)}
-                className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

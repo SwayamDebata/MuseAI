@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useChatStore } from '@/stores/chatStore'
 import OTPForm from './OTPForm'
 import PhoneForm from './PhoneForm'
 
@@ -19,6 +20,20 @@ export default function AuthPage() {
     countryCode: '',
     phoneNumber: '',
   })
+  const { initializeCometChat } = useChatStore()
+
+  useEffect(() => {
+    const initChat = async () => {
+      try {
+        await initializeCometChat()
+        console.log('CometChat initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize CometChat:', error)
+      }
+    }
+    
+    initChat()
+  }, [initializeCometChat])
 
   const handlePhoneSubmit = (data: { countryCode: string; phoneNumber: string }, otp: string) => {
     setAuthData({ ...data, generatedOTP: otp })

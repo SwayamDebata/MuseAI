@@ -4,6 +4,7 @@
 import { Menu, Sun, Moon, LogOut } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useThemeStore } from '../../stores/themeStore'
+import { useChatStore } from '../../stores/chatStore'
 
 interface HeaderProps {
   isSidebarOpen: boolean
@@ -13,6 +14,12 @@ interface HeaderProps {
 export default function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
   const { user, logout } = useAuthStore()
   const { isDark, toggleTheme } = useThemeStore()
+  const { logoutFromCometChat } = useChatStore()
+
+  const handleLogout = async () => {
+    await logoutFromCometChat()
+    logout()
+  }
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
@@ -57,7 +64,7 @@ export default function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) 
           </div>
 
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-red-600 dark:text-red-400"
             title="Logout"
           >

@@ -26,13 +26,7 @@ export default function MessageInput() {
     e.preventDefault()
     if (!message.trim() || !currentChatroom) return
 
-    let messageToSend = message.trim()
-    
-    if (pendingAICommand && !messageToSend.startsWith('/askAI ')) {
-      messageToSend = `/askAI ${messageToSend}`
-    }
-    
-    console.log('Sending message:', messageToSend)
+    const messageToSend = pendingAICommand ? `/${pendingAICommand} ${message.trim()}` : message.trim()
     
     try {
       await sendCometChatMessage(messageToSend)
@@ -53,74 +47,48 @@ export default function MessageInput() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
-    const cursorPosition = e.target.selectionStart
     setMessage(value)
 
-    if (value.startsWith('/askAI ')) {
-      if (!pendingAICommand) {
-        setPendingAICommand('askAI')
-      }
-      if (showAISelector) {
-        setShowAISelector(false)
-      }
-    } else if (pendingAICommand && !value.startsWith('/askAI ')) {
-      setPendingAICommand('')
-    }
-
+    const cursorPosition = e.target.selectionStart
     const textBeforeCursor = value.slice(0, cursorPosition)
-    const words = textBeforeCursor.split(/[\s\n]/)
-    const currentWord = words[words.length - 1]
+    const lastCharacter = textBeforeCursor.slice(-1)
+    const secondLastCharacter = textBeforeCursor.slice(-2, -1)
 
-    if ((currentWord === '/' || currentWord === '\\') && !showAISelector) {
-      console.log('Showing AI selector for trigger:', currentWord)
-      setAISelectorPosition({
-        top: -170, 
-        left: 20   
-      })
-      setShowAISelector(true)
-    } else if (showAISelector) {
-      if (currentWord.length > 1 && (currentWord.startsWith('/') || currentWord.startsWith('\\'))) {
-        console.log('Hiding AI selector - user typing after trigger')
-        setShowAISelector(false)
-      } else if (!currentWord.startsWith('/') && !currentWord.startsWith('\\')) {
-        console.log('Hiding AI selector - different word')
-        setShowAISelector(false)
+    if ((lastCharacter === '/' || lastCharacter === '\\') && 
+        (secondLastCharacter === '' || secondLastCharacter === ' ' || secondLastCharacter === '\n')) {
+      const rect = e.target.getBoundingClientRect()
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      
+      if (containerRect) {
+        setAISelectorPosition({
+          top: rect.top - containerRect.top - 200, 
+          left: rect.left - containerRect.left
+        })
       }
+      setShowAISelector(true)
+    } else if (showAISelector && (value.includes(' ') || value === '')) {
+      setShowAISelector(false)
     }
 
+    if (value.length > 0 && !isTyping) {
+      setTyping(true)
+    } else if (value.length === 0 && isTyping) {
+      setTyping(false)
+    }
   }
 
   const handleAICommandSelect = (command: string) => {
+    setPendingAICommand(command)
     setShowAISelector(false)
     
-    const cursorPosition = textareaRef.current?.selectionStart || message.length
-    const textBeforeCursor = message.slice(0, cursorPosition)
-    const textAfterCursor = message.slice(cursorPosition)
-    
-    const words = textBeforeCursor.split(/[\s\n]/)
-    const lastWordIndex = textBeforeCursor.lastIndexOf(words[words.length - 1])
-    
-    const beforeTrigger = message.slice(0, lastWordIndex)
-    const newMessage = beforeTrigger + '/askAI ' + textAfterCursor
-    
+    const newMessage = message.replace(/[/\\]$/, '')
     setMessage(newMessage)
-    setPendingAICommand('askAI')
     
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus()
-        const newCursorPosition = beforeTrigger.length + '/askAI '.length
-        textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
-      }
-    }, 0)
+    textareaRef.current?.focus()
   }
 
   const cancelAICommand = () => {
     setPendingAICommand('')
-    if (message.startsWith('/askAI ')) {
-      setMessage(message.replace('/askAI ', ''))
-    }
-    textareaRef.current?.focus()
   }
 
   return (
@@ -137,13 +105,13 @@ export default function MessageInput() {
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         {/* AI Command Indicator */}
         {pendingAICommand && (
-          <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-            <span className="text-sm text-purple-600 dark:text-purple-400">
-              🤖 AI Question Mode: Type your question below
+          <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <span className="text-sm text-blue-600 dark:text-blue-400">
+              🤖 Asking AI: <strong>{pendingAICommand}</strong>
             </span>
             <button
               onClick={cancelAICommand}
-              className="text-purple-500 hover:text-purple-700 text-sm ml-auto"
+              className="text-blue-500 hover:text-blue-700 text-sm ml-auto"
             >
               Cancel
             </button>
@@ -168,7 +136,7 @@ export default function MessageInput() {
               onKeyDown={handleKeyDown}
               placeholder={
                 pendingAICommand 
-                  ? "What would you like to ask the AI?" 
+                  ? "Type your question for AI..." 
                   : "Type a message... (use / or \\ for AI commands)"
               }
               className="w-full px-4 py-3 pr-12 border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[48px] max-h-[120px]"
