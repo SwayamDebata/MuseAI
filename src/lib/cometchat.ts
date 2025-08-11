@@ -1,9 +1,26 @@
 import type { CometChat } from "@cometchat/chat-sdk-javascript";
 
+// Debug environment variables before using them
+if (typeof window !== 'undefined') {
+  console.log('🔍 Environment Debug:', {
+    NODE_ENV: process.env.NODE_ENV,
+    APP_ID_RAW: process.env.NEXT_PUBLIC_COMETCHAT_APP_ID,
+    REGION_RAW: process.env.NEXT_PUBLIC_COMETCHAT_REGION,
+    AUTH_KEY_RAW: process.env.NEXT_PUBLIC_COMETCHAT_AUTH_KEY ? 'SET' : 'NOT_SET',
+    ALL_ENV_KEYS: Object.keys(process.env).filter(key => key.includes('COMETCHAT'))
+  });
+}
+
 export const COMETCHAT_CONFIG = {
-  APP_ID: process.env.NEXT_PUBLIC_COMETCHAT_APP_ID || "YOUR_APP_ID",
-  REGION: process.env.NEXT_PUBLIC_COMETCHAT_REGION || "YOUR_REGION", 
-  AUTH_KEY: process.env.NEXT_PUBLIC_COMETCHAT_AUTH_KEY || "YOUR_AUTH_KEY",
+  APP_ID: process.env.NEXT_PUBLIC_COMETCHAT_APP_ID || 
+          process.env.COMETCHAT_APP_ID || 
+          "2799742cbcb5084f", // Fallback to your actual app ID
+  REGION: process.env.NEXT_PUBLIC_COMETCHAT_REGION || 
+          process.env.COMETCHAT_REGION || 
+          "in", // Fallback to your actual region
+  AUTH_KEY: process.env.NEXT_PUBLIC_COMETCHAT_AUTH_KEY || 
+            process.env.COMETCHAT_AUTH_KEY || 
+            "48254eed861a489fafdd93a03d176e38d684a627", // Fallback to your actual auth key
 };
 
 export const createValidUID = (phoneNumber: string): string => {
@@ -19,11 +36,20 @@ export const createValidUID = (phoneNumber: string): string => {
 };
 
 if (typeof window !== 'undefined') {
-  console.log('CometChat Config:', {
+  console.log('✅ CometChat Config Loaded:', {
     APP_ID: COMETCHAT_CONFIG.APP_ID,
     REGION: COMETCHAT_CONFIG.REGION,
-    AUTH_KEY: COMETCHAT_CONFIG.AUTH_KEY ? '***' + COMETCHAT_CONFIG.AUTH_KEY.slice(-4) : 'NOT_SET'
+    AUTH_KEY: COMETCHAT_CONFIG.AUTH_KEY ? '***' + COMETCHAT_CONFIG.AUTH_KEY.slice(-4) : 'NOT_SET',
+    IS_PRODUCTION: process.env.NODE_ENV === 'production'
   });
+  
+  // Validate configuration
+  if (COMETCHAT_CONFIG.APP_ID === "YOUR_APP_ID" || 
+      COMETCHAT_CONFIG.REGION === "YOUR_REGION" || 
+      COMETCHAT_CONFIG.AUTH_KEY === "YOUR_AUTH_KEY") {
+    console.error('❌ CometChat environment variables not properly configured!');
+    console.error('Please check your Vercel environment variables');
+  }
 }
 
 export class CometChatManager {
@@ -62,6 +88,19 @@ export class CometChatManager {
         return false;
       }
 
+      // Validate configuration before attempting to initialize
+      if (COMETCHAT_CONFIG.APP_ID === "YOUR_APP_ID" || 
+          COMETCHAT_CONFIG.REGION === "YOUR_REGION" || 
+          COMETCHAT_CONFIG.AUTH_KEY === "YOUR_AUTH_KEY") {
+        console.error("❌ CometChat configuration invalid - environment variables not set properly");
+        console.error("Current config:", {
+          APP_ID: COMETCHAT_CONFIG.APP_ID,
+          REGION: COMETCHAT_CONFIG.REGION,
+          AUTH_KEY_SET: COMETCHAT_CONFIG.AUTH_KEY !== "YOUR_AUTH_KEY"
+        });
+        return false;
+      }
+
       console.log("Initializing CometChat with:", {
         APP_ID: COMETCHAT_CONFIG.APP_ID,
         REGION: COMETCHAT_CONFIG.REGION,
@@ -76,10 +115,21 @@ export class CometChatManager {
 
       await CometChat.init(COMETCHAT_CONFIG.APP_ID, appSetting);
       this.initialized = true;
-      console.log("CometChat initialized successfully");
+      console.log("✅ CometChat initialized successfully");
       return true;
     } catch (error) {
-      console.error("CometChat initialization failed:", error);
+      console.error("❌ CometChat initialization failed:", error);
+      
+      // Provide helpful error messages
+      if (error && typeof error === 'object') {
+        const errorMessage = (error as any).message || '';
+        if (errorMessage.includes('APP_ID')) {
+          console.error("💡 Check your NEXT_PUBLIC_COMETCHAT_APP_ID environment variable");
+        } else if (errorMessage.includes('region')) {
+          console.error("💡 Check your NEXT_PUBLIC_COMETCHAT_REGION environment variable");
+        }
+      }
+      
       return false;
     }
   }
